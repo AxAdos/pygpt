@@ -8,7 +8,7 @@ import asyncio
 
 # ✅ بيانات البوت
 TOKEN = "7336372322:AAEtIUcY6nNEEGZzIMjJdfYMTAMsLpTSpzk"
-WEBHOOK_URL = "https://api.render.com/deploy/srv-cvauf2tumphs73aj6a20?key=g7L1eSK-mVA"  # ← استبدله بعنوان السيرفر الفعلي
+WEBHOOK_URL = "https://api.render.com/deploy/srv-cvbnb9tds78s73ampivg?key=bVahe5gy2Nw"  # ← استبدله بعنوان السيرفر الفعلي
 
 # ✅ إنشاء Flask
 app = Flask(__name__)
