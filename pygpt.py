@@ -2,12 +2,12 @@ import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
-TOKEN = os.getenv("TOKEN")  # اجلب التوكن من متغيرات البيئة
-PORT = int(os.getenv("PORT", 8443))  # استخدم المنفذ من متغير البيئة أو 8443 افتراضيًا
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # احصل على رابط الـ webhook من متغير البيئة
+# وضع التوكن والهوك مباشرة في الكود
+TOKEN = "7336372322:AAEtIUcY6nNEEGZzIMjJdfYMTAMsLpTSpzk"
+WEBHOOK_URL = "https://api.render.com/deploy/srv-cvbnb9tds78s73ampivg?key=bVahe5gy2Nw"
 
-if not TOKEN or not WEBHOOK_URL:
-    raise ValueError("TOKEN and WEBHOOK_URL must be set in environment variables")
+# استخدم المنفذ المخصص من Render أو 10000 افتراضيًا
+PORT = int(os.getenv("PORT", 10000))
 
 # دالة للرد على /start
 async def start(update: Update, context: CallbackContext) -> None:
@@ -26,8 +26,8 @@ application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
 # تشغيل التطبيق باستخدام webhook
 application.run_webhook(
-    listen="0.0.0.0",
-    port=PORT,
+    listen="0.0.0.0",  # استماع لجميع الشبكات
+    port=PORT,  # استخدام المنفذ 10000 من البيئة
     url_path=TOKEN,  # يُستخدم كجزء من عنوان الـ webhook
     webhook_url=f"{WEBHOOK_URL}/{TOKEN}"  # عنوان الـ webhook الكامل
 )
