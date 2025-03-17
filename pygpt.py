@@ -1,47 +1,88 @@
-from flask import Flask, request
-from telegram import Update, Bot
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 import yt_dlp
 import os
 import uuid
-import asyncio
+from flask import Flask, request
 
-# ✅ بيانات البوت
 TOKEN = "7336372322:AAEtIUcY6nNEEGZzIMjJdfYMTAMsLpTSpzk"
-WEBHOOK_URL = "https://api.render.com/deploy/srv-cvbnb9tds78s73ampivg?key=bVahe5gy2Nw"  # ← استبدله بعنوان السيرفر الفعلي
+WEBHOOK_URL = "https://api.render.com/deploy/srv-cvauf2tumphs73aj6a20?key=g7L1eSK-mVA"
 
-# ✅ إنشاء Flask
 app = Flask(__name__)
 
-# ✅ إنشاء بوت Telegram
-bot = Bot(TOKEN)
-application = Application.builder().token(TOKEN).build()
+@app.route('/')
+def home():
+    return "Bot is running!"
 
-# ✅ دالة بدء البوت
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 مرحبًا! أرسل رابط فيديو من يوتيوب وسأقوم بتحميله لك.")
-
-# ✅ دالة استقبال الروابط
-async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text
-    await update.message.reply_text(f"🔄 جاري معالجة الرابط: {url}")
-
-# ✅ إضافة Handlers للبوت
-application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
-
-# ✅ استقبال الطلبات من Telegram عبر Webhook
-@app.route("/webhook", methods=["POST"])
+@app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
     update = Update.de_json(request.get_json(), bot)
-    asyncio.run(application.process_update(update))
+    application.process_update(update)
     return "OK", 200
 
-# ✅ نقطة الوصول الرئيسية
-@app.route("/")
-def home():
-    return "✅ البوت يعمل عبر Webhook!"
+# أوامر التحكم بالبوت
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("مرحبًا! أرسل رابط فيديو وسأقوم بتحميله لك.")
 
-# ✅ تشغيل التطبيق
-if __name__ == "__main__":
+async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    url = update.message.text
+    try:
+        formats = get_available_formats(url)
+        if not formats:
+            await update.message.reply_text("لم أجد أي جودات متاحة.")
+            return
+        
+        keyboard = [[InlineKeyboardButton(f"{f['resolution']} ({f['ext']})", callback_data=f['format_id'])] for f in formats]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await update.message.reply_text("اختر الجودة:", reply_markup=reply_markup)
+        context.user_data['url'] = url
+    
+    except Exception as e:
+        await update.message.reply_text(f"خطأ: {e}")
+
+async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    format_id = query.data
+    url = context.user_data.get('url')
+
+    if not url:
+        await query.edit_message_text("خطأ: الرابط غير موجود.")
+        return
+
+    try:
+        unique_id = str(uuid.uuid4())
+        filename = f"downloaded_video_{unique_id}.mp4"
+
+        ydl_opts = {
+            'format': format_id,
+            'outtmpl': filename,
+            'quiet': True,
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            final_filename = ydl.prepare_filename(info)
+
+        await context.bot.send_video(chat_id=query.message.chat_id, video=open(final_filename, 'rb'))
+        await query.edit_message_text("تم إرسال الفيديو!")
+        os.remove(final_filename)
+
+    except Exception as e:
+        await query.edit_message_text(f"خطأ غير متوقع: {e}")
+
+def main():
+    global application
+    application = Application.builder().token(TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
+    application.add_handler(CallbackQueryHandler(download_video))
+
+    application.bot.set_webhook(WEBHOOK_URL)
     app.run(host="0.0.0.0", port=8080)
+
+if __name__ == '__main__':
+    main()
