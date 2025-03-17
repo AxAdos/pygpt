@@ -3,3 +3,4 @@ python-telegram-bot
 yt-dlp
 gunicorn
 asyncio
+python-telegram-bot[webhooks]
