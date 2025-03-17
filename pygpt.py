@@ -3,22 +3,25 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 import yt_dlp
 import os
 import uuid
-from flask import Flask, request
 
 TOKEN = "7336372322:AAEtIUcY6nNEEGZzIMjJdfYMTAMsLpTSpzk"
-WEBHOOK_URL = "https://api.render.com/deploy/srv-cvauf2tumphs73aj6a20?key=g7L1eSK-mVA"
 
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-@app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(), bot)
-    application.process_update(update)
-    return "OK", 200
+# دالة لاستخراج الجودات المتاحة
+def get_available_formats(url):
+    ydl = yt_dlp.YoutubeDL()
+    info = ydl.extract_info(url, download=False)
+    formats = info.get('formats', [])
+    
+    available_formats = []
+    for f in formats:
+        if f.get('vcodec') != 'none' and f.get('acodec') != 'none':
+            available_formats.append({
+                'format_id': f.get('format_id'),
+                'resolution': f.get('resolution', 'unknown'),
+                'ext': f.get('ext', 'unknown'),
+            })
+    
+    return available_formats
 
 # أوامر التحكم بالبوت
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -74,15 +77,13 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"خطأ غير متوقع: {e}")
 
 def main():
-    global application
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(download_video))
 
-    application.bot.set_webhook(WEBHOOK_URL)
-    app.run(host="0.0.0.0", port=8080)
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
