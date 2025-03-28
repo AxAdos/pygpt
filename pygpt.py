@@ -34,20 +34,24 @@ def get_available_formats(url):
             'cookiefile': 'cookies.txt',
             'ignoreerrors': True,
             'retries': 10,
-            'format_sort': ['res:2160', 'res:1080', 'mp4'],  # أولوية للجودات العالية
-            'http_headers': {'User-Agent': 'Mozilla/5.0'}
+            'sleep_interval': 60,
+            'ratelimit': 500000,
+            'http_headers': {'User-Agent': 'Mozilla/5.0'},
+            'format_sort': ['res:2160', 'res:1080', 'mp4'],
+            'extract_flat': 'in_playlist',
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            if not info:
+            
+            # التحقق من صلاحية المحتوى
+            if not info or info.get('availability') != 'public':
                 return None
                 
-            formats = info.get('formats', [])
+            formats = info.get('formats') or []
             available_formats = []
             
             for f in formats:
-                # تجاهل التنسيقات بدون صوت أو صورة
                 if f.get('vcodec') == 'none' or f.get('acodec') == 'none':
                     continue
                     
@@ -66,12 +70,11 @@ def get_available_formats(url):
                         'ext': f.get('ext', 'mp4')
                     })
                     
-            # ترتيب الجودات من الأعلى إلى الأقل
             available_formats.sort(key=lambda x: int(x['resolution'].replace('p', '')) if 'p' in x['resolution'] else 0, reverse=True)
-            return available_formats[:10]  # عرض حتى 10 جودات
+            return available_formats[:10]
             
     except Exception as e:
-        print(f"Error extracting formats: {str(e)}")
+        print(f"Critical Error: {str(e)}")
         return None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -80,9 +83,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
     try:
+        # معالجة روابط فيسبوك
+        if "facebook" in url.lower():
+            url = url.replace("www.facebook.com", "fb.watch").replace("m.facebook.com", "fb.watch")
+            await update.message.reply_text("⚠️ جاري معالجة فيديو فيسبوك... قد يستغرق هذا بعض الوقت")
+        
         formats = get_available_formats(url)
         if not formats:
-            await update.message.reply_text("⚠️ لم أجد جودات متاحة.")
+            await update.message.reply_text("⚠️ لم أجد جودات متاحة. تأكد من:\n1. الرابط صحيح\n2. المحتوى عام\n3. تحديث cookies.txt")
             return
             
         keyboard = [
@@ -118,15 +126,15 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'outtmpl': temp_filename,
             'merge_output_format': 'mp4',
             'retries': 10,
-            'fragment_retries': 10,
-            'retry-sleep': 20,
+            'sleep_interval': 60,
+            'ratelimit': 500000,
             'cookiefile': 'cookies.txt',
             'http_headers': {'User-Agent': 'Mozilla/5.0'},
             'prefer_free_formats': True,
             'quiet': True,
+            'extract_flat': 'in_playlist',
         }
         
-        # تحميل الفيديو
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             temp_filename = ydl.prepare_filename(info)
@@ -138,25 +146,27 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 temp_filename = final_filename
                 
         # التحقق من حجم الملف
-        file_size = os.path.getsize(temp_filename)
-        if file_size > 2 * 1024 * 1024 * 1024:  # 2GB حد تيليجرام
-            await query.edit_message_text("⚠️ الفيديو كبير جدًا! حاول اختيار جودة أقل.")
-            return
+        if os.path.exists(temp_filename):
+            file_size = os.path.getsize(temp_filename)
+            if file_size > 2 * 1024 * 1024 * 1024:  # 2GB
+                await query.edit_message_text("⚠️ الفيديو كبير جدًا! حاول اختيار جودة أقل.")
+                return
+                
+            with open(temp_filename, 'rb') as video_file:
+                await context.bot.send_video(
+                    chat_id=query.message.chat_id,
+                    video=video_file,
+                    caption="تم التحميل بواسطتنا 🎥",
+                    read_timeout=600,
+                    write_timeout=600,
+                    connect_timeout=600,
+                    supports_streaming=True
+                )
+                
+            await query.edit_message_text("✅ تم الإرسال بنجاح!")
+        else:
+            await query.edit_message_text("❌ خطأ: الملف غير موجود!")
             
-        # إرسال الفيديو
-        with open(temp_filename, 'rb') as video_file:
-            await context.bot.send_video(
-                chat_id=query.message.chat_id,
-                video=video_file,
-                caption="تم التحميل بواسطتنا 🎥",
-                read_timeout=600,
-                write_timeout=600,
-                connect_timeout=600,
-                supports_streaming=True
-            )
-            
-        await query.edit_message_text("✅ تم الإرسال بنجاح!")
-        
     except yt_dlp.utils.DownloadError as e:
         await query.edit_message_text(f"⚠️ خطأ تحميل: {str(e)[:200]}")
     except telegram.error.BadRequest as e:
@@ -171,18 +181,14 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(temp_filename)
 
 def main():
-    # تشغيل الخادم الويب في خيط منفصل
     Thread(target=run_flask, daemon=True).start()
     
-    # إعداد البوت
     application = Application.builder().token(TOKEN).build()
     
-    # إضافة معالجات الأوامر
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(download_video))
     
-    # بدء التشغيل
     application.run_polling()
 
 if __name__ == '__main__':
