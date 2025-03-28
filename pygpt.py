@@ -152,9 +152,6 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     chat_id=query.message.chat_id,
                     video=video_file,
                     caption="تم التحميل بواسطتنا 🎥",
-                    read_timeout=600,
-                    write_timeout=600,
-                    connect_timeout=600,
                     supports_streaming=True
                 )
                 
@@ -185,21 +182,26 @@ def main():
     # تشغيل الخادم الويب في خيط منفصل
     Thread(target=run_flask, daemon=True).start()
     
-    # إعداد البوت مع التأكد من إيقاف النسخ القديمة
-    application = Application.builder().token(TOKEN).build()
+    # إعداد البوت مع تكوين الاتصال الصحيح
+    application = (
+        Application.builder()
+        .token(TOKEN)
+        .connection_pool_size(8)
+        .connect_timeout(30)
+        .read_timeout(30)
+        .write_timeout(30)
+        .build()
+    )
     
     # إضافة المعالجات
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(download_video))
     
-    # تشغيل البوت باستخدام Polling مع إعدادات مثالية
+    # تشغيل البوت بالشكل الصحيح
     application.run_polling(
         timeout=30,
-        read_timeout=30,
-        write_timeout=30,
-        connect_timeout=30,
-        pool_timeout=30
+        allowed_updates=Update.ALL_TYPES
     )
 
 if __name__ == '__main__':
