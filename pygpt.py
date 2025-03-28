@@ -4,7 +4,7 @@ import time
 import subprocess
 from flask import Flask
 from threading import Thread
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -44,7 +44,6 @@ def get_available_formats(url):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
-            # التحقق من صلاحية المحتوى
             if not info or info.get('availability') != 'public':
                 return None
                 
@@ -55,7 +54,6 @@ def get_available_formats(url):
                 if f.get('vcodec') == 'none' or f.get('acodec') == 'none':
                     continue
                     
-                # دعم خاص لفيسبوك
                 if 'facebook' in url.lower():
                     if f.get('format_id') in ['hd', 'sd', 'dav']:
                         available_formats.append({
@@ -83,7 +81,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
     try:
-        # معالجة روابط فيسبوك
         if "facebook" in url.lower():
             url = url.replace("www.facebook.com", "fb.watch").replace("m.facebook.com", "fb.watch")
             await update.message.reply_text("⚠️ جاري معالجة فيديو فيسبوك... قد يستغرق هذا بعض الوقت")
@@ -139,16 +136,14 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = ydl.extract_info(url, download=True)
             temp_filename = ydl.prepare_filename(info)
             
-            # دمج الأجزاء إذا لزم الأمر
             if not temp_filename.endswith('.mp4'):
                 subprocess.run(['ffmpeg', '-i', temp_filename, '-c', 'copy', final_filename])
                 os.remove(temp_filename)
                 temp_filename = final_filename
                 
-        # التحقق من حجم الملف
         if os.path.exists(temp_filename):
             file_size = os.path.getsize(temp_filename)
-            if file_size > 2 * 1024 * 1024 * 1024:  # 2GB
+            if file_size > 2 * 1024 * 1024 * 1024:
                 await query.edit_message_text("⚠️ الفيديو كبير جدًا! حاول اختيار جودة أقل.")
                 return
                 
@@ -181,15 +176,31 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(temp_filename)
 
 def main():
+    # إزالة أي webhook قديم
+    try:
+        Bot(token=TOKEN).delete_webhook()
+    except:
+        pass
+
+    # تشغيل الخادم الويب في خيط منفصل
     Thread(target=run_flask, daemon=True).start()
     
+    # إعداد البوت مع التأكد من إيقاف النسخ القديمة
     application = Application.builder().token(TOKEN).build()
     
+    # إضافة المعالجات
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(download_video))
     
-    application.run_polling()
+    # تشغيل البوت باستخدام Polling مع إعدادات مثالية
+    application.run_polling(
+        timeout=30,
+        read_timeout=30,
+        write_timeout=30,
+        connect_timeout=30,
+        pool_timeout=30
+    )
 
 if __name__ == '__main__':
     main()
