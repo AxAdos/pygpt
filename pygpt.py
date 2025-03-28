@@ -93,11 +93,14 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filename = f"downloaded_video_{unique_id}.mp4"
         
         ydl_opts = {
-            'format': format_id,
-            'outtmpl': filename,
-            'quiet': True,
-            'no_warnings': True,
-        }
+    'format': format_id,
+    'outtmpl': filename,
+    'quiet': True,
+    'retries': 10,  # ← عدد المحاولات
+    'fragment-retries': 10,
+    'retry-sleep': 15,  # ← تأخير بين المحاولات (ثواني)
+    'cookiefile': 'cookies.txt',  # تأكد من وجود ملف الكوكيز
+}
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
