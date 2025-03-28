@@ -1,14 +1,20 @@
-# استخدام صورة Python الرسمية
 FROM python:3.11-slim
 
-# تعيين مجلد العمل
+# إنشاء مستخدم جديد
+RUN useradd -m myuser
+
+# تغيير صاحب المجلد
 WORKDIR /app
+RUN chown -R myuser:myuser /app
 
-# نسخ ملف المتطلبات وتنصيبها
+# التبديل إلى المستخدم الجديد
+USER myuser
+
+# تثبيت المتطلبات
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --user --no-cache-dir -r requirements.txt
 
-# نسخ الكود المصدري
+# نسخ الكود
 COPY . .
 
 # تشغيل البوت
