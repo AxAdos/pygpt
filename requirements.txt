@@ -1,3 +1,4 @@
+pytube
 flask
 python-telegram-bot
 yt-dlp
