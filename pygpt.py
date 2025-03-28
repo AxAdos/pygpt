@@ -9,32 +9,40 @@ TOKEN = "7336372322:AAEtIUcY6nNEEGZzIMjJdfYMTAMsLpTSpzk"  # ← استبدل ه�
 
 # دالة لاستخراج الجودات المتاحة
 def get_available_formats(url):
-    ydl_opts = {
-        'cookies': 'cookies.txt',  # تأكد من إضافة مسار ملف الكوكيز هنا
-        'quiet': True,  # تقليل الإخراج في السجلات
-        'no_warnings': True,  # تجاهل التحذيرات
-        'throttled': True,  # تفعيل خاصية الحد من سرعة التحميل
-        'sleep_interval': 5,  # تأخير بين الطلبات (مثال 5 ثواني)
-    }
-    ydl = yt_dlp.YoutubeDL(ydl_opts)
-    info = ydl.extract_info(url, download=False)
-    formats = info.get('formats', [])
+    try:
+        ydl_opts = {
+            'cookies': 'cookies.txt',  # تأكد من إضافة مسار ملف الكوكيز هنا
+            'quiet': False,  # جعل الإخراج أكثر وضوحًا لتحديد الأخطاء
+            'no_warnings': True,  # تجاهل التحذيرات
+            'throttled': True,  # تفعيل خاصية الحد من سرعة التحميل
+            'sleep_interval': 5,  # تأخير بين الطلبات (مثال 5 ثواني)
+        }
+        ydl = yt_dlp.YoutubeDL(ydl_opts)
+        info = ydl.extract_info(url, download=False)
+        
+        if 'formats' not in info:
+            raise Exception("لم يتم العثور على الجودات المتاحة للفيديو")
+        
+        formats = info.get('formats', [])
     
-    # تصفية الجودات المتاحة (فيديو مع صوت)
-    available_formats = []
-    for f in formats:
-        if f.get('vcodec') != 'none' and f.get('acodec') != 'none':  # فيديو مع صوت
-            format_id = f.get('format_id')
-            resolution = f.get('resolution', 'unknown')
-            format_note = f.get('format_note', 'unknown')  # استخدام format_note كبديل
-            ext = f.get('ext', 'unknown')
-            available_formats.append({
-                'format_id': format_id,
-                'resolution': resolution if resolution != 'unknown' else format_note,
-                'ext': ext,
-            })
-    
-    return available_formats
+        # تصفية الجودات المتاحة (فيديو مع صوت)
+        available_formats = []
+        for f in formats:
+            if f.get('vcodec') != 'none' and f.get('acodec') != 'none':  # فيديو مع صوت
+                format_id = f.get('format_id')
+                resolution = f.get('resolution', 'unknown')
+                format_note = f.get('format_note', 'unknown')  # استخدام format_note كبديل
+                ext = f.get('ext', 'unknown')
+                available_formats.append({
+                    'format_id': format_id,
+                    'resolution': resolution if resolution != 'unknown' else format_note,
+                    'ext': ext,
+                })
+        
+        return available_formats
+    except Exception as e:
+        print(f"حدث خطأ أثناء الحصول على الجودات: {e}")
+        return []
 
 # دالة لبدء البوت
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -90,7 +98,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'cookies': 'cookies.txt',  # تأكد من إضافة مسار ملف الكوكيز هنا
             'format': format_id,
             'outtmpl': filename,  # استخدام اسم الملف الفريد
-            'quiet': True,  # تقليل الإخراج في السجلات
+            'quiet': False,  # جعل الإخراج أكثر وضوحًا
             'no_warnings': True,  # تجاهل التحذيرات
             'throttled': True,  # تفعيل خاصية الحد من سرعة التحميل
             'sleep_interval': 5,  # تأخير بين الطلبات (مثال 5 ثواني)
@@ -116,7 +124,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         os.remove(final_filename)
     
     except yt_dlp.utils.DownloadError as e:
-        await query.edit_message_text(f"حدث خطأ: {e}")
+        await query.edit_message_text(f"حدث خطأ أثناء تحميل الفيديو: {e}")
     except Exception as e:
         await query.edit_message_text(f"حدث خطأ غير متوقع: {e}")
 
