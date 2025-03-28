@@ -15,7 +15,7 @@ from telegram.ext import (
 import yt_dlp
 
 # إعداد التوكن والويب هوك (يفضل قراءتهم من متغيرات البيئة)
-TOKEN = "7344680185:AAEs0-LuI__6rQkVnKHLMGwEMOBfL2g5uuo"  # استبدل بالمفتاح الحقيقي
+TOKEN = "7336372322:AAEtIUcY6nNEEGZzIMjJdfYMTAMsLpTSpzk"  # استبدل بالمفتاح الحقيقي
 WEBHOOK_URL = "https://api.render.com/deploy/srv-cvbnb9tds78s73ampivg?key=bVahe5gy2Nw"
 PORT = int(os.getenv("PORT", 10000))
 
