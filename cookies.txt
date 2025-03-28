@@ -23,3 +23,15 @@
 .youtube.com	TRUE	/	TRUE	0	YSC	wZOGgESzo1Q
 .youtube.com	TRUE	/	TRUE	1758717582	__Secure-ROLLOUT_TOKEN	COz--9f6sMjo4wEQwYbEqNrkigMYgIGK6-WsjAM%3D
 .youtube.com	TRUE	/	TRUE	1777293774	VISITOR_PRIVACY_METADATA	CgJBVBIcEhgSFhMLFBUWFwwYGRobHB0eHw4PIBAREiEgLw%3D%3D
+# Netscape HTTP Cookie File
+# http://curl.haxx.se/rfc/cookie_spec.html
+# This is a generated file!  Do not edit.
+.facebook.com	TRUE	/	TRUE	1773490660	sb	-TCuZgg7sorrwDV_N4x5hDCs
+.facebook.com	TRUE	/	TRUE	1757251889	datr	-TCuZuDBOXA1gXTtvtgZrP-V
+.facebook.com	TRUE	/	TRUE	1757251998	ps_l	1
+.facebook.com	TRUE	/	TRUE	1757251998	ps_n	1
+.facebook.com	TRUE	/	TRUE	1774708246	c_user	100014033839171
+.facebook.com	TRUE	/	TRUE	1750948216	fr	0D43vr5hBy0jYVwAp.AWecsx3bd7i11s9Xq7NcK8MKnr-oOeYiO7fCmxWcC12Qtgpjavk.BnpfkB..AAA.0.0.Bn5rJ5.AWdM9mWc0t971LhtPdLAqKllnhI
+.facebook.com	TRUE	/	TRUE	1774708246	xs	9%3ACoTLN1TL4Ukj6Q%3A2%3A1738930657%3A-1%3A6841%3A%3AAcUu0hH3C_f5gOJsI02bcR3aBL2ySq_YpnduHQQNJw
+.facebook.com	TRUE	/	TRUE	1743777071	wd	1358x650
+.facebook.com	TRUE	/	TRUE	0	presence	C%7B%22t3%22%3A%5B%5D%2C%22utc3%22%3A1743172278273%2C%22v%22%3A1%7D
