@@ -1,12 +1,33 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
-import yt_dlp
 import os
 import uuid
+from flask import Flask
+from threading import Thread
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    filters,
+    ContextTypes,
+)
+import yt_dlp
 
+# إعداد المتغيرات الأساسية
 TOKEN = "7336372322:AAEtIUcY6nNEEGZzIMjJdfYMTAMsLpTSpzk"  # ← استبدل هذا بالمفتاح الحقيقي
+PORT = int(os.environ.get("PORT", 10000))  # استخدام المنفذ من البيئة أو 10000 كافتراضي
 
-# دالة لاستخراج الجودات المتاحة
+# إنشاء تطبيق Flask لفتح منفذ HTTP (مطلوب من Render)
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "البوت يعمل!", 200
+
+def run_flask():
+    app.run(host="0.0.0.0", port=PORT)
+
+# دالة لاستخراج الجودات المتاحة باستخدام yt_dlp
 def get_available_formats(url):
     ydl = yt_dlp.YoutubeDL()
     info = ydl.extract_info(url, download=False)
@@ -18,7 +39,7 @@ def get_available_formats(url):
         if f.get('vcodec') != 'none' and f.get('acodec') != 'none':  # فيديو مع صوت
             format_id = f.get('format_id')
             resolution = f.get('resolution', 'unknown')
-            format_note = f.get('format_note', 'unknown')  # استخدام format_note كبديل
+            format_note = f.get('format_note', 'unknown')
             ext = f.get('ext', 'unknown')
             available_formats.append({
                 'format_id': format_id,
@@ -28,39 +49,31 @@ def get_available_formats(url):
     
     return available_formats
 
-# دالة لبدء البوت
+# دالة بدء البوت
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('مرحبا! أرسل رابط فيديو من يوتيوب أو فيسبوك وسأحمله لك.')
 
-# دالة لمعالجة الرابط
+# دالة معالجة الرابط واستخراج الجودات وعرضها للمستخدم عبر InlineKeyboard
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
-    
     try:
-        # استخراج الجودات المتاحة
         formats = get_available_formats(url)
         if not formats:
             await update.message.reply_text("لم أتمكن من العثور على جودات متاحة.")
             return
         
-        # إنشاء قائمة أزرار للجودات
         keyboard = []
         for f in formats:
-            button_text = f"{f['resolution']} ({f['ext']})"  # عرض الجودة وامتداد الملف
+            button_text = f"{f['resolution']} ({f['ext']})"
             keyboard.append([InlineKeyboardButton(button_text, callback_data=f['format_id'])])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        # إرسال القائمة للمستخدم
         await update.message.reply_text("اختر جودة الفيديو:", reply_markup=reply_markup)
-        
-        # حفظ الرابط في الذاكرة
         context.user_data['url'] = url
-    
     except Exception as e:
         await update.message.reply_text(f"حدث خطأ: {e}")
 
-# دالة لمعالجة اختيار الجودة
+# دالة معالجة اختيار الجودة وتنزيل الفيديو
 async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -73,35 +86,29 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     try:
-        # إنشاء اسم ملف فريد
-        unique_id = str(uuid.uuid4())  # إنشاء معرف عشوائي
+        unique_id = str(uuid.uuid4())
         filename = f"downloaded_video_{unique_id}.mp4"
-
-        # خيارات التحميل بناءً على الجودة المختارة
+        
         ydl_opts = {
             'format': format_id,
-            'outtmpl': filename,  # استخدام اسم الملف الفريد
-            'quiet': True,  # تقليل الإخراج في السجلات
-            'no_warnings': True,  # تجاهل التحذيرات
+            'outtmpl': filename,
+            'quiet': True,
+            'no_warnings': True,
         }
-
-        # التحميل
+        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             final_filename = ydl.prepare_filename(info)
-
-        # إرسال الفيديو مع زيادة وقت الانتظار
+        
         await context.bot.send_video(
             chat_id=query.message.chat_id,
             video=open(final_filename, 'rb'),
-            read_timeout=120,  # زيادة وقت القراءة إلى 120 ثانية
-            write_timeout=120,  # زيادة وقت الكتابة إلى 120 ثانية
-            connect_timeout=120,  # زيادة وقت الاتصال إلى 120 ثانية
-            pool_timeout=120,  # زيادة وقت الانتظار إلى 120 ثانية
+            read_timeout=120,
+            write_timeout=120,
+            connect_timeout=120,
+            pool_timeout=120,
         )
         await query.edit_message_text("تم إرسال الفيديو بنجاح!")
-        
-        # حذف الفيديو بعد الإرسال
         os.remove(final_filename)
     
     except yt_dlp.utils.DownloadError as e:
@@ -109,16 +116,17 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await query.edit_message_text(f"حدث خطأ غير متوقع: {e}")
 
-# دالة رئيسية لتشغيل البوت
+# الدالة الرئيسية لتشغيل البوت
 def main():
+    # تشغيل خادم Flask في Thread منفصل لفتح منفذ HTTP
+    Thread(target=run_flask).start()
+    
     application = Application.builder().token(TOKEN).build()
-
-    # إضافة handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(download_video))
-
-    # بدء البوت
+    
+    # تشغيل البوت باستخدام polling
     application.run_polling()
 
 if __name__ == '__main__':
