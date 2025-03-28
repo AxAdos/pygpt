@@ -1,12 +1,10 @@
-import os
-import uuid
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 import yt_dlp
+import os
+import uuid
 
 TOKEN = "7336372322:AAEtIUcY6nNEEGZzIMjJdfYMTAMsLpTSpzk"  # ← استبدل هذا بالمفتاح الحقيقي
-WEBHOOK_URL = "https://api.render.com/deploy/srv-cvbnb9tds78s73ampivg?key=bVahe5gy2Nw"  # رابط الـ webhook الخاص بك
-PORT = int(os.getenv("PORT", 10000))  # استخدام المنفذ من المتغيرات البيئية أو 10000 كافتراضي
 
 # دالة لاستخراج الجودات المتاحة
 def get_available_formats(url):
@@ -111,7 +109,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await query.edit_message_text(f"حدث خطأ غير متوقع: {e}")
 
-# دالة رئيسية لتشغيل البوت باستخدام webhook (مناسب لخادم Render)
+# دالة رئيسية لتشغيل البوت
 def main():
     application = Application.builder().token(TOKEN).build()
 
@@ -120,13 +118,8 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(download_video))
 
-    # تشغيل البوت باستخدام webhook
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=TOKEN,
-        webhook_url=f"{WEBHOOK_URL}/{TOKEN}"
-    )
+    # بدء البوت
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
