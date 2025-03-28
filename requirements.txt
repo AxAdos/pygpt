@@ -5,3 +5,4 @@ gunicorn
 asyncio
 python-telegram-bot[webhooks]
 ffmpeg-python
+pip install gunicorn
