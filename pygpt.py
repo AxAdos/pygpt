@@ -2,9 +2,9 @@ import os
 import uuid
 import time
 import subprocess
+import threading
 from flask import Flask
-from threading import Thread
-from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -25,27 +25,39 @@ app = Flask(__name__)
 def home():
     return "البوت يعمل!", 200
 
-def run_flask():
-    from gunicorn.app.base import BaseApplication
-    class FlaskApp(BaseApplication):
-        def __init__(self, app, options=None):
-            self.options = options or {}
-            self.application = app
-            super().__init__()
-        def load_config(self):
-            config = {key: value for key, value in self.options.items()
-                    if key in self.cfg.settings and value is not None}
-            for key, value in config.items():
-                self.cfg.set(key.lower(), value)
-        def load(self):
-            return self.application
-    options = {
-        'bind': f'0.0.0.0:{PORT}',
-        'workers': 2,
-        'timeout': 300,
-        'worker_class': 'eventlet',
-    }
-    FlaskApp(app, options).run()
+def run_telegram_bot():
+    # إزالة أي webhook قديم
+    try:
+        from telegram import Bot
+        Bot(token=TOKEN).delete_webhook()
+    except:
+        pass
+
+    # إعداد البوت
+    application = (
+        Application.builder()
+        .token(TOKEN)
+        .connection_pool_size(8)
+        .connect_timeout(30)
+        .read_timeout(30)
+        .write_timeout(30)
+        .build()
+    )
+    
+    # إضافة المعالجات
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
+    application.add_handler(CallbackQueryHandler(download_video))
+    
+    # تشغيل البوت
+    application.run_polling(
+        timeout=30,
+        allowed_updates=Update.ALL_TYPES
+    )
+
+# تشغيل البوت في خيط منفصل
+bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
+bot_thread.start()
 
 def get_available_formats(url):
     try:
@@ -191,37 +203,25 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'temp_filename' in locals() and os.path.exists(temp_filename):
             os.remove(temp_filename)
 
-def main():
-    # إزالة أي webhook قديم
-    try:
-        Bot(token=TOKEN).delete_webhook()
-    except:
-        pass
-
-    # تشغيل الخادم الويب في خيط منفصل
-    Thread(target=run_flask, daemon=True).start()
-    
-    # إعداد البوت مع تكوين الاتصال الصحيح
-    application = (
-        Application.builder()
-        .token(TOKEN)
-        .connection_pool_size(8)
-        .connect_timeout(30)
-        .read_timeout(30)
-        .write_timeout(30)
-        .build()
-    )
-    
-    # إضافة المعالجات
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
-    application.add_handler(CallbackQueryHandler(download_video))
-    
-    # تشغيل البوت بالشكل الصحيح
-    application.run_polling(
-        timeout=30,
-        allowed_updates=Update.ALL_TYPES
-    )
-
 if __name__ == '__main__':
-    main()
+    # تشغيل Flask مع Gunicorn
+    from gunicorn.app.base import BaseApplication
+    class FlaskApp(BaseApplication):
+        def __init__(self, app, options=None):
+            self.options = options or {}
+            self.application = app
+            super().__init__()
+        def load_config(self):
+            config = {key: value for key, value in self.options.items()
+                    if key in self.cfg.settings and value is not None}
+            for key, value in config.items():
+                self.cfg.set(key.lower(), value)
+        def load(self):
+            return self.application
+    options = {
+        'bind': f'0.0.0.0:{PORT}',
+        'workers': 2,
+        'timeout': 300,
+        'worker_class': 'eventlet',
+    }
+    FlaskApp(app, options).run()
