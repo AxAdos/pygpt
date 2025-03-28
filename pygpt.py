@@ -29,7 +29,10 @@ def run_flask():
 
 # دالة لاستخراج الجودات المتاحة باستخدام yt_dlp
 def get_available_formats(url):
-    ydl = yt_dlp.YoutubeDL()
+    ydl = yt_dlp.YoutubeDL({
+    'cookiefile': 'cookies.txt',  # ← تأكد من أن المسار صحيح
+    'ignoreerrors': True,
+})
     info = ydl.extract_info(url, download=False)
     formats = info.get('formats', [])
     
