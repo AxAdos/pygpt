@@ -26,7 +26,26 @@ def home():
     return "البوت يعمل!", 200
 
 def run_flask():
-    app.run(host="0.0.0.0", port=PORT)
+    from gunicorn.app.base import BaseApplication
+    class FlaskApp(BaseApplication):
+        def __init__(self, app, options=None):
+            self.options = options or {}
+            self.application = app
+            super().__init__()
+        def load_config(self):
+            config = {key: value for key, value in self.options.items()
+                    if key in self.cfg.settings and value is not None}
+            for key, value in config.items():
+                self.cfg.set(key.lower(), value)
+        def load(self):
+            return self.application
+    options = {
+        'bind': f'0.0.0.0:{PORT}',
+        'workers': 2,
+        'timeout': 300,
+        'worker_class': 'eventlet',
+    }
+    FlaskApp(app, options).run()
 
 def get_available_formats(url):
     try:
